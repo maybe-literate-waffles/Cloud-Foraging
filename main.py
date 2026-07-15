@@ -1,9 +1,18 @@
 import requests as rq
 import datetime as dt
 import time as tm
+import psycopg
+import signal as sg
 from zoneinfo import ZoneInfo
 
 base_url = "https://api.open-meteo.com/v1/"
+
+running = True
+
+
+def handle_exit(signum, frame):
+    global running
+    running = False
 
 
 def get_weather_data():
@@ -42,10 +51,40 @@ def data_func():
     return clean_data
 
 
+def create(cur):
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS weather_data(
+                w_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                temperature REAL,
+                unit TEXT, 
+                latitude REAL,
+                longitude REAL,
+                timezone TEXT,
+                time TEXT
+                );
+    """)
+
+
+def insert(cur, *args):
+    temp, unit, lati, longi, tmzn, time = args
+    cur.execute(
+        t"INSERT INTO weather_data (temperature, unit, latitude, longitude, timezone, time) VALUES({temp}, {unit}, {lati}, {longi}, {tmzn}, {time});"
+    )
+
+
 time = 0
 
-while True:
-    clean_data = data_func()
-    time = dt.datetime.now().time().strftime("%H:%M:%S")
-    tm.sleep(5)
-    print(f"{clean_data}")
+sg.signal(sg.SIGINT, handle_exit)
+
+with psycopg.connect("dbname=projects user=literate-waffle") as conn:
+    while running:
+        clean_data = data_func()
+        data_list = list(clean_data.values())
+
+        with conn.cursor() as cur:
+            create(cur)
+            insert(cur, *data_list)
+
+        conn.commit()
+        tm.sleep(5)
+        print("Exiting script...")
