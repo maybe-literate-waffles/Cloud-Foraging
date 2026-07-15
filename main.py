@@ -1,6 +1,7 @@
 import requests as rq
 import datetime as dt
 import time as tm
+from zoneinfo import ZoneInfo
 
 base_url = "https://api.open-meteo.com/v1/"
 
@@ -14,6 +15,7 @@ def get_weather_data():
 
 def clean_up(weather):
     clean_weath = {}
+    time = dt.datetime.now(ZoneInfo("Asia/Tokyo")).time().strftime("%H:%M:%S")
 
     temp = weather["current"]["temperature_2m"]
     temp_unit = weather["current_units"]["temperature_2m"]
@@ -27,6 +29,7 @@ def clean_up(weather):
         "latitude": lat_cor,
         "longitude": long_cor,
         "timezone": time_zone,
+        "time": time,
     }
 
     return clean_weath
@@ -45,4 +48,4 @@ while True:
     clean_data = data_func()
     time = dt.datetime.now().time().strftime("%H:%M:%S")
     tm.sleep(5)
-    print(f"{clean_data} and time: {time}")
+    print(f"{clean_data}")
